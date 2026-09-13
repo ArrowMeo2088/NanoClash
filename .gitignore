@@ -1,0 +1,28 @@
+# 本地/生成目录（按项目约定排除）
+/Build/**
+!/Build/README.md
+/Publish/**
+!/Publish/README.md
+/Src/Publish/
+/Packages/**
+!/Packages/README.md
+/Ref/**
+!/Ref/README.md
+/Res/Proxy.yaml
+
+# 运行时用户数据（发布目录旁）
+**/data/
+**/config.yaml
+**/proxy-undo.json
+!/Docs/**
+
+# Visual Studio / IDE
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS
+Thumbs.db
+Desktop.ini

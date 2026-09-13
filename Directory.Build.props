@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <!-- 编译产物统一放到仓库根目录的 Build/ -->
+    <BaseOutputPath>$(MSBuildThisFileDirectory)Build\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)Build\obj\</BaseIntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+
+    <!-- 程序集名 NanoClash；命名空间前缀 Clash -->
+    <AssemblyName>NanoClash</AssemblyName>
+    <RootNamespace>Clash</RootNamespace>
+    <LangVersion>14</LangVersion>
+    <Copyright>ArrowMeo</Copyright>
+    <Company>ArrowMeo</Company>
+
+    <!-- 发布：不生成 PDB -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">None</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
+  </PropertyGroup>
+</Project>

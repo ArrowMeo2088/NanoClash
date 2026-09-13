@@ -1,0 +1,143 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            asset: NanoClash-win-x64.zip
+          - os: ubuntu-latest
+            rid: linux-x64
+            asset: NanoClash-linux-x64.tar.gz
+          - os: macos-latest
+            rid: osx-arm64
+            asset: NanoClash-osx-arm64.tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install Linux NativeAOT deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish ${{ matrix.rid }}
+        shell: bash
+        run: |
+          EXTRA=()
+          case "${{ matrix.rid }}" in
+            win-*) EXTRA+=(-p:MewUIBackend=Direct2D) ;;
+          esac
+          dotnet publish Src/NanoClash.csproj \
+            -c Release \
+            -r "${{ matrix.rid }}" \
+            -o "artifacts/${{ matrix.rid }}" \
+            --self-contained true \
+            -p:PublishAot=true \
+            -p:TrimMode=full \
+            -p:OptimizationPreference=Size \
+            -p:IlcFoldIdenticalMethodBodies=true \
+            -p:InvariantGlobalization=true \
+            -p:StripSymbols=true \
+            -p:DebuggerSupport=false \
+            -p:StackTraceSupport=false \
+            -p:EventSourceSupport=false \
+            -p:HttpActivityPropagationSupport=false \
+            -p:MetadataUpdaterSupport=false \
+            -p:UseSystemResourceKeys=true \
+            -p:NullabilityInfoContextSupport=false \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:AppendRuntimeIdentifierToOutputPath=false \
+            "${EXTRA[@]}"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "artifacts/${{ matrix.rid }}\*" -DestinationPath "${{ matrix.asset }}"
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          tar -C "artifacts/${{ matrix.rid }}" -czf "${{ matrix.asset }}" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          if [[ -z "$TAG" ]]; then
+            echo "Release tag is empty" >&2
+            exit 1
+          fi
+          # Accept "1.0.0" or "v1.0.0"
+          if [[ "$TAG" != v* ]]; then
+            TAG="v${TAG}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+          generate_release_notes: true
+          files: |
+            dist/NanoClash-win-x64.zip
+            dist/NanoClash-linux-x64.tar.gz
+            dist/NanoClash-osx-arm64.tar.gz

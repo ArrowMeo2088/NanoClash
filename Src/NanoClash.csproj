@@ -1,0 +1,59 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- WinExe: no console window on Windows; still a normal GUI binary on Linux/macOS -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Build\pub'))\</PublishDir>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\Res\icon\icon.ico</ApplicationIcon>
+
+    <!-- AOT only when explicitly publishing (build.bat/sh). Keeps IDE Build from dumping huge trees. -->
+    <PublishAot Condition="'$(PublishAot)' == ''">false</PublishAot>
+    <TrimMode>full</TrimMode>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StripSymbols>true</StripSymbols>
+    <DebuggerSupport>false</DebuggerSupport>
+    <StackTraceSupport>false</StackTraceSupport>
+    <!-- Extra size-oriented feature switches (safe for this app; no culture/HTTP activity/etc.). -->
+    <EventSourceSupport>false</EventSourceSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <NullabilityInfoContextSupport>false</NullabilityInfoContextSupport>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+
+  <!-- Avoid linker auto asInvoker fragment clashing with requireAdministrator -->
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
+    <LinkerArg Include="/MANIFESTUAC:NO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aprillz.MewUI" Version="0.21.1" />
+  </ItemGroup>
+
+  <!-- PE/exe icon (Windows) + window chrome icon via embedded resource — not a sidecar file. -->
+  <ItemGroup Condition="Exists('..\Res\icon\icon.ico')">
+    <EmbeddedResource Include="..\Res\icon\icon.ico" LogicalName="NanoClash.icon.ico" />
+  </ItemGroup>
+
+  <!-- Rules.bin embedded; read via GetManifestResourceStream (no extract / no sidecar). -->
+  <ItemGroup Condition="Exists('..\Res\Rules.bin')">
+    <EmbeddedResource Include="..\Res\Rules.bin" LogicalName="NanoClash.Rules.bin" />
+  </ItemGroup>
+
+  <!-- wintun.dll embedded; extracted at runtime to %APPDATA%\ArrorMeo\NanoClash (Windows only). -->
+  <ItemGroup Condition="Exists('..\Res\wintun\wintun.dll')">
+    <EmbeddedResource Include="..\Res\wintun\wintun.dll" LogicalName="NanoClash.wintun.dll" />
+  </ItemGroup>
+
+</Project>
