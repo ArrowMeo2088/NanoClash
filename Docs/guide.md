@@ -46,7 +46,7 @@ curl -x http://127.0.0.1:7887 https://www.google.com/ -v -o NUL
 
 若用户目录尚无 `config.yaml`，而**可执行文件旁**仍有旧版 `config.yaml` + `data/`，启动时会**一次性迁入**（不迁移旁路 `Proxy.yaml`；程序也不再读取它）。
 
-旁路 `proxy-undo.json`（WinINET 崩溃恢复快照）仍写在可执行文件目录。程序**不写** `log.txt`。
+系统代理崩溃恢复快照写在用户目录（`proxy-undo.json` / `proxy-undo-mac.txt` / `proxy-undo-gnome.txt`）。程序**不写** `log.txt`。
 
 ## 订阅
 
@@ -85,7 +85,7 @@ curl -x http://127.0.0.1:7887 https://www.google.com/ -v -o NUL
 
 ## 增强模式（Windows TUN）
 
-- 清单 `requireAdministrator`；`wintun.dll` 内嵌，启动解压到用户数据目录后 `LoadLibrary`
+- 清单 `asInvoker`；开增强时若无管理员则 UAC 提权重启。`wintun.dll` 内嵌，启动解压到用户数据目录后 `LoadLibrary`
 - 适配器名 `NanoClash`，地址 `172.19.0.1/30`；Listen + 包 NAT（System TCP，IPv4 TCP）
 - 规则：`RuleDb` → Proxy（当前节点）/ Direct / Reject；非 DNS 的 UDP 丢弃
 - **防回环**：探测物理默认网关；节点 `/32` 走物理口；再装 split default；出站 bind + `IP_UNICAST_IF`

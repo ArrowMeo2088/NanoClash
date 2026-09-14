@@ -33,7 +33,51 @@ internal sealed class LinuxGnomeSystemProxy : ISystemProxy
             Restore();
     }
 
-    public void ForceRestore() => Restore();
+    public void ForceRestore()
+    {
+        if (_applied)
+        {
+            Restore();
+            return;
+        }
+
+        RecoverOrphanedProxy();
+    }
+
+    public static void RecoverOrphanedProxy()
+    {
+        if (!OperatingSystem.IsLinux())
+            return;
+        new LinuxGnomeSystemProxy().TryRecoverFromDisk();
+    }
+
+    private void TryRecoverFromDisk()
+    {
+        var snap = LoadUndo();
+        if (snap is null)
+            return;
+        try
+        {
+            var host = GSettingsGet("org.gnome.system.proxy.http", "host") ?? "";
+            var port = ParseInt(GSettingsGet("org.gnome.system.proxy.http", "port"), 0);
+            var mode = GSettingsGet("org.gnome.system.proxy", "mode") ?? "";
+            if (!mode.Contains("manual", StringComparison.OrdinalIgnoreCase) ||
+                !host.Contains(Host, StringComparison.Ordinal) ||
+                port != Port)
+            {
+                ClearUndo();
+                return;
+            }
+
+            TryWriteSnapshot(snap);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        ClearUndo();
+    }
 
     private void Apply()
     {
@@ -59,6 +103,7 @@ internal sealed class LinuxGnomeSystemProxy : ISystemProxy
             GSettingsSet("org.gnome.system.proxy.https", "host", Host);
             GSettingsSet("org.gnome.system.proxy.https", "port", Port.ToString());
             _prev = snap;
+            WriteUndo(snap);
             _applied = true;
         }
         catch
@@ -78,6 +123,7 @@ internal sealed class LinuxGnomeSystemProxy : ISystemProxy
         TryWriteSnapshot(_prev);
         _prev = null;
         _applied = false;
+        ClearUndo();
     }
 
     private static void TryWriteSnapshot(Snapshot s)
@@ -144,8 +190,57 @@ internal sealed class LinuxGnomeSystemProxy : ISystemProxy
         using var p = Process.Start(psi) ?? throw new InvalidOperationException($"Failed to start {file}");
         var stdout = p.StandardOutput.ReadToEnd();
         var stderr = p.StandardError.ReadToEnd();
-        p.WaitForExit(10_000);
+        if (!p.WaitForExit(10_000))
+        {
+            try { p.Kill(entireProcessTree: true); } catch { }
+            return (-1, stdout, "timed out");
+        }
         return (p.ExitCode, stdout, stderr);
+    }
+
+    private static string UndoPath => Path.Combine(AppPaths.UserDataDir, "proxy-undo-gnome.txt");
+
+    private static void WriteUndo(Snapshot s)
+    {
+        try
+        {
+            File.WriteAllText(UndoPath,
+                string.Join('\t', s.Mode, s.UseSame, s.HttpHost, s.HttpPort, s.HttpEnabled, s.HttpsHost, s.HttpsPort));
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private static Snapshot? LoadUndo()
+    {
+        try
+        {
+            if (!File.Exists(UndoPath))
+                return null;
+            var p = File.ReadAllText(UndoPath).Split('\t');
+            if (p.Length < 7)
+                return null;
+            return new Snapshot(p[0], p[1], p[2], ParseInt(p[3], 0), p[4], p[5], ParseInt(p[6], 0));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void ClearUndo()
+    {
+        try
+        {
+            if (File.Exists(UndoPath))
+                File.Delete(UndoPath);
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     private sealed record Snapshot(

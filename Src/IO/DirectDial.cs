@@ -3,7 +3,6 @@ using System.Net.Sockets;
 
 using Clash.Net;
 using Clash.Rules;
-using Clash.Utils;
 
 namespace Clash.IO;
 

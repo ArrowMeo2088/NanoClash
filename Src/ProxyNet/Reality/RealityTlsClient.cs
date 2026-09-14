@@ -764,34 +764,24 @@ internal sealed class RealityTlsClient
 /// is the peer breaking TLS or sending something this client does not implement. The first is
 /// "check pbk, sid and sni"; the second is not something the caller can fix by reconfiguring.
 /// </remarks>
-public sealed class RealityHandshakeException : ProxyProtocolException
+internal sealed class RealityHandshakeException : ProxyProtocolException
 {
     /// <summary>Creates the exception with <see cref="ProxyErrorCode.InvalidResponse"/>.</summary>
     /// <param name="message">What went wrong.</param>
-    public RealityHandshakeException(string message) : base(ProxyErrorCode.InvalidResponse, message)
+    internal RealityHandshakeException(string message) : base(ProxyErrorCode.InvalidResponse, message)
     {
     }
 
-    /// <summary>Creates the exception with an explicit code.</summary>
-    /// <param name="errorCode">Why, in terms a caller can branch on.</param>
-    /// <param name="message">What went wrong.</param>
-    public RealityHandshakeException(ProxyErrorCode errorCode, string message) : base(errorCode, message)
+    internal RealityHandshakeException(ProxyErrorCode errorCode, string message) : base(errorCode, message)
     {
     }
 
-    /// <summary>Creates the exception with <see cref="ProxyErrorCode.InvalidResponse"/>.</summary>
-    /// <param name="message">What went wrong.</param>
-    /// <param name="innerException">The underlying failure.</param>
-    public RealityHandshakeException(string message, Exception innerException)
+    internal RealityHandshakeException(string message, Exception innerException)
         : base(ProxyErrorCode.InvalidResponse, message, innerException)
     {
     }
 
-    /// <summary>Creates the exception with an explicit code and an underlying failure.</summary>
-    /// <param name="errorCode">Why, in terms a caller can branch on.</param>
-    /// <param name="message">What went wrong.</param>
-    /// <param name="innerException">The underlying failure.</param>
-    public RealityHandshakeException(ProxyErrorCode errorCode, string message, Exception innerException)
+    internal RealityHandshakeException(ProxyErrorCode errorCode, string message, Exception innerException)
         : base(errorCode, message, innerException)
     {
     }

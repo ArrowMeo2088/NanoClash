@@ -5,7 +5,8 @@ Shared stream helpers used by both HTTP inbound and TUN:
 | File | Role |
 |------|------|
 | `DirectDial.cs` | Happy-Eyeballs TCP dial (system DNS) |
-| `Relay.cs` | Bidirectional copy + `TrafficCounters` |
+| `Relay.cs` | Bidirectional copy (idle timeout + half-close) |
+| `TrafficCounters.cs` | 上下行字节与窗口速率 |
 | `TlsHelloCoalesce.cs` | Aggregate ClientHello before Vision first write |
 
 Depends on: `Clash.Net`, `Clash.Rules`, `Clash.Utils`.

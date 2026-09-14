@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Text;
 
 using Clash.Net;
-using Clash.Utils;
 
 namespace Clash.Config;
 
@@ -28,6 +27,7 @@ internal sealed class SubscriptionFetchResult
 internal sealed class SubscriptionClient : IDisposable
 {
     public const string UserAgent = "clash.meta";
+    public const int MaxBodyBytes = 16 * 1024 * 1024;
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(45);
 
     private readonly HttpClient _http;
@@ -74,12 +74,35 @@ internal sealed class SubscriptionClient : IDisposable
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
-        var body = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        var body = await ReadBodyLimitedAsync(resp, ct).ConfigureAwait(false);
         var info = ParseUserInfoHeader(resp.Headers) ?? ParseUserInfoFromBody(body);
         var suggested = ParseContentDispositionName(resp.Content.Headers)
             ?? ParseProfileTitle(resp.Headers)
             ?? SuggestNameFromUrl(url);
         return new SubscriptionFetchResult { Body = body, UserInfo = info, SuggestedName = suggested };
+    }
+
+    private static async Task<byte[]> ReadBodyLimitedAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        if (resp.Content.Headers.ContentLength is long len && len > MaxBodyBytes)
+            throw new InvalidOperationException("订阅内容超过 16 MB");
+
+        await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var ms = new MemoryStream();
+        var buf = new byte[8192];
+        var total = 0;
+        while (true)
+        {
+            var n = await stream.ReadAsync(buf.AsMemory(), ct).ConfigureAwait(false);
+            if (n == 0)
+                break;
+            total += n;
+            if (total > MaxBodyBytes)
+                throw new InvalidOperationException("订阅内容超过 16 MB");
+            ms.Write(buf, 0, n);
+        }
+
+        return ms.ToArray();
     }
 
     public static string? ParseContentDispositionName(HttpContentHeaders headers)

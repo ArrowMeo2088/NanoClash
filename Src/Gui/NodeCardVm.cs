@@ -16,7 +16,8 @@ internal sealed class NodeCardVm
     public Guid Id { get; }
     public ProxyNode Node { get; }
     public string Name => Node.Name;
-    public string Protocol => Node.Type;
+    public string Protocol =>
+        string.IsNullOrEmpty(Node.ClientFingerprint) ? Node.Type : Node.Type + " (fp 未生效)";
 
     /// <summary>Plain integer ms or "-" / "…".</summary>
     public ObservableValue<string> LatencyText { get; } = new("-");

@@ -21,7 +21,64 @@ internal sealed class MacSystemProxy : ISystemProxy
             Restore();
     }
 
-    public void ForceRestore() => Restore();
+    public void ForceRestore()
+    {
+        if (_applied)
+        {
+            Restore();
+            return;
+        }
+
+        RecoverOrphanedProxy();
+    }
+
+    public static void RecoverOrphanedProxy()
+    {
+        if (!OperatingSystem.IsMacOS())
+            return;
+        new MacSystemProxy().TryRecoverFromDisk();
+    }
+
+    private void TryRecoverFromDisk()
+    {
+        if (!File.Exists(UndoPath))
+            return;
+        try
+        {
+            var snaps = LoadUndo();
+            if (snaps is null || snaps.Count == 0)
+            {
+                ClearUndo();
+                return;
+            }
+
+            var stillOurs = false;
+            foreach (var svc in ListNetworkServices())
+            {
+                var web = CaptureProxy(svc, "getwebproxy");
+                if (web.Enabled && web.Server == Host && web.Port.ToString() == Port)
+                {
+                    stillOurs = true;
+                    break;
+                }
+            }
+
+            if (!stillOurs)
+            {
+                ClearUndo();
+                return;
+            }
+
+            foreach (var s in snaps)
+                TryRestoreService(s);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        ClearUndo();
+    }
 
     private void Apply()
     {
@@ -52,6 +109,7 @@ internal sealed class MacSystemProxy : ISystemProxy
             }
 
             _snapshots = snaps;
+            WriteUndo(snaps);
             _applied = true;
         }
         catch
@@ -74,6 +132,7 @@ internal sealed class MacSystemProxy : ISystemProxy
 
         _snapshots = null;
         _applied = false;
+        ClearUndo();
     }
 
     private static void TryRestoreService(ServiceSnapshot s)
@@ -158,7 +217,11 @@ internal sealed class MacSystemProxy : ISystemProxy
         using var p = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start networksetup");
         var err = p.StandardError.ReadToEnd();
         var stdout = p.StandardOutput.ReadToEnd();
-        p.WaitForExit(15_000);
+        if (!p.WaitForExit(15_000))
+        {
+            try { p.Kill(entireProcessTree: true); } catch { }
+            throw new TimeoutException("networksetup timed out");
+        }
         if (p.ExitCode != 0)
             throw new InvalidOperationException($"networksetup {string.Join(' ', args)} failed ({p.ExitCode}): {err}{stdout}");
     }
@@ -179,10 +242,71 @@ internal sealed class MacSystemProxy : ISystemProxy
         using var p = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start networksetup");
         var stdout = p.StandardOutput.ReadToEnd();
         var err = p.StandardError.ReadToEnd();
-        p.WaitForExit(15_000);
+        if (!p.WaitForExit(15_000))
+        {
+            try { p.Kill(entireProcessTree: true); } catch { }
+            throw new TimeoutException("networksetup timed out");
+        }
         if (p.ExitCode != 0)
             throw new InvalidOperationException($"networksetup {string.Join(' ', args)} failed ({p.ExitCode}): {err}");
         return stdout;
+    }
+
+    private static string UndoPath => Path.Combine(AppPaths.UserDataDir, "proxy-undo-mac.txt");
+
+    private static void WriteUndo(List<ServiceSnapshot> snaps)
+    {
+        try
+        {
+            using var sw = new StringWriter();
+            foreach (var s in snaps)
+            {
+                sw.Write(s.Name); sw.Write('\t');
+                sw.Write(s.Web.Enabled); sw.Write('\t');
+                sw.Write(s.Web.Server ?? ""); sw.Write('\t');
+                sw.Write(s.Web.Port); sw.Write('\t');
+                sw.Write(s.SecureWeb.Enabled); sw.Write('\t');
+                sw.Write(s.SecureWeb.Server ?? ""); sw.Write('\t');
+                sw.Write(s.SecureWeb.Port);
+                sw.Write('\n');
+            }
+
+            File.WriteAllText(UndoPath, sw.ToString());
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private static List<ServiceSnapshot>? LoadUndo()
+    {
+        var list = new List<ServiceSnapshot>();
+        foreach (var line in File.ReadAllLines(UndoPath))
+        {
+            var p = line.Split('\t');
+            if (p.Length < 7)
+                continue;
+            list.Add(new ServiceSnapshot(
+                p[0],
+                new ProxyState(bool.TryParse(p[1], out var we) && we, p[2], int.TryParse(p[3], out var wp) ? wp : 0),
+                new ProxyState(bool.TryParse(p[4], out var se) && se, p[5], int.TryParse(p[6], out var sp) ? sp : 0)));
+        }
+
+        return list;
+    }
+
+    private static void ClearUndo()
+    {
+        try
+        {
+            if (File.Exists(UndoPath))
+                File.Delete(UndoPath);
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     private readonly record struct ProxyState(bool Enabled, string? Server, int Port);

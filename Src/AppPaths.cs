@@ -23,8 +23,8 @@ internal static class AppPaths
     public static string DataDir => Path.Combine(UserDataDir, "data");
     public static string AppConfigYaml => Path.Combine(UserDataDir, "config.yaml");
     public static string WintunDll => Path.Combine(UserDataDir, "wintun.dll");
-    /// <summary>Crash-recovery snapshot of WinINET proxy before NanoClash applied 127.0.0.1:7887.</summary>
-    public static string ProxyUndoFile => Path.Combine(BaseDir, "proxy-undo.json");
+    /// <summary>Crash-recovery snapshot of system proxy before NanoClash applied 127.0.0.1:7887.</summary>
+    public static string ProxyUndoFile => Path.Combine(UserDataDir, "proxy-undo.json");
 
     /// <summary>
     /// Create user-data dirs; one-shot migrate <c>config.yaml</c> + <c>data/</c> from the exe folder

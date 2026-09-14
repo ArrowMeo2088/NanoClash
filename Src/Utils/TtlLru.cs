@@ -34,9 +34,15 @@ internal sealed class TtlLru<T> : IDisposable
         if (_map.Count <= _capacity)
             return;
 
-        // Best-effort eviction of oldest entries.
-        foreach (var old in _map.OrderBy(kv => kv.Value.LastAccess).Take(_map.Count - _capacity))
-            _map.TryRemove(old.Key, out _);
+        var now = Environment.TickCount64;
+        var seen = 0;
+        foreach (var kv in _map)
+        {
+            if (now > kv.Value.ExpireAt || (seen++ & 7) == 0)
+                _map.TryRemove(kv.Key, out _);
+            if (_map.Count <= _capacity)
+                return;
+        }
     }
 
     public void Dispose()
@@ -52,32 +58,5 @@ internal sealed class TtlLru<T> : IDisposable
         public T Value { get; } = value;
         public long ExpireAt { get; } = expireAt;
         public long LastAccess = lastAccess;
-    }
-}
-
-internal static class SocketUtil
-{
-    public static void ConfigureNoDelay(System.Net.Sockets.Socket socket)
-    {
-        try
-        {
-            socket.NoDelay = true;
-        }
-        catch
-        {
-            // ignore
-        }
-    }
-
-    public static void ConfigureNoDelay(System.Net.Sockets.TcpClient client)
-    {
-        try
-        {
-            ConfigureNoDelay(client.Client);
-        }
-        catch
-        {
-            // ignore
-        }
     }
 }

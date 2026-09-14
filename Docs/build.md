@@ -53,7 +53,7 @@ build.bat publish win-x64
 
 ### Windows UAC
 
-`Src/app.manifest` 为 `requireAdministrator`（增强模式改路由 / 装适配器需要）。链接时对 win RID 使用 `/MANIFESTUAC:NO`，避免与清单冲突。
+`Src/app.manifest` 为 `asInvoker`；增强模式在运行时检测管理员并提示 UAC 提权。
 
 ## CI
 

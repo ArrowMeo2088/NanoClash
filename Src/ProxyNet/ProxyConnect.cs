@@ -91,7 +91,6 @@ internal static class ProxyConnect
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
         {
             NoDelay = true,
-            LingerState = new LingerOption(true, 0),
         };
 
         try

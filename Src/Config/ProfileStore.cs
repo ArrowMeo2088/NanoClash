@@ -14,6 +14,7 @@ internal sealed class ProfileStore
 
     public IReadOnlyList<ProfileEntry> Profiles => _profiles;
     public string? DefaultName => _defaultName;
+    public string? LoadError { get; private set; }
 
     public ProfileEntry? Active =>
         _profiles.FirstOrDefault(p => string.Equals(p.Name, _defaultName, StringComparison.Ordinal))
@@ -23,6 +24,7 @@ internal sealed class ProfileStore
     {
         _profiles.Clear();
         _defaultName = null;
+        LoadError = null;
 
         if (File.Exists(AppPaths.AppConfigYaml))
             LoadFromFile(AppPaths.AppConfigYaml);
@@ -222,7 +224,8 @@ internal sealed class ProfileStore
                         current.Name = val;
                         break;
                     case "hash":
-                        current.Hash = val;
+                        if (ContentStore.IsSafeContentHash(val))
+                            current.Hash = val;
                         break;
                     case "type":
                         current.Kind = val.Equals("cloud", StringComparison.OrdinalIgnoreCase)
@@ -264,9 +267,9 @@ internal sealed class ProfileStore
             if (_defaultName is null && _profiles.Count > 0)
                 _defaultName = _profiles[0].Name;
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore load errors
+            LoadError = "配置读取失败: " + ex.Message;
         }
     }
 
@@ -275,8 +278,14 @@ internal sealed class ProfileStore
         if (s.Length == 0)
             return "\"\"";
         if (s.Contains(':') || s.Contains('#') || s.Contains('"') || s.Contains('\'') ||
-            s.Contains('\n') || s.StartsWith(' ') || s.EndsWith(' '))
-            return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+            s.Contains('\n') || s.Contains('\r') || s.StartsWith(' ') || s.EndsWith(' '))
+        {
+            return "\"" + s.Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("\"", "\\\"", StringComparison.Ordinal)
+                .Replace("\r", "\\r", StringComparison.Ordinal)
+                .Replace("\n", "\\n", StringComparison.Ordinal) + "\"";
+        }
+
         return s;
     }
 

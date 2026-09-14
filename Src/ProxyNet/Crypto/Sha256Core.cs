@@ -6,7 +6,7 @@ using System.Runtime.Intrinsics;
 namespace Clash.ProxyNet;
 
 /// <summary>
-/// The shared FIPS 180-4 SHA-2/32 engine behind <see cref="Sha224"/> and <see cref="Sha256"/>.
+/// The shared FIPS 180-4 SHA-2/32 engine behind <see cref="Sha224"/>.
 /// SHA-224 and SHA-256 differ only in their initial hash values and in how much of the final
 /// state is emitted, so the block compression, the message schedule and the padding rules live
 /// here exactly once.

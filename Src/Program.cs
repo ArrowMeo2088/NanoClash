@@ -26,6 +26,14 @@ if (OperatingSystem.IsWindows())
     Clash.Tun.Windows.TunOsRecovery.RecoverOrphanedOsState();
     WindowsSystemProxy.RecoverOrphanedProxy();
 }
+else if (OperatingSystem.IsMacOS())
+{
+    MacSystemProxy.RecoverOrphanedProxy();
+}
+else if (OperatingSystem.IsLinux())
+{
+    LinuxGnomeSystemProxy.RecoverOrphanedProxy();
+}
 
 TunService? tun = null;
 
@@ -81,8 +89,19 @@ try
         {
             proxy.SetSystemProxy(false);
             SystemProxy.ForceRestore();
-            tun.StopAsync().GetAwaiter().GetResult();
-            proxy.StopAsync().GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // ignore
+        }
+
+        try
+        {
+            Task.Run(async () =>
+            {
+                try { await tun.StopAsync().ConfigureAwait(false); } catch { }
+                try { await proxy.StopAsync().ConfigureAwait(false); } catch { }
+            }).Wait(TimeSpan.FromSeconds(10));
         }
         catch
         {

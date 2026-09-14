@@ -179,6 +179,13 @@ internal sealed class AddProfileDialog
                     return;
                 }
 
+                if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    _status.Value = "订阅地址仅支持 http/https";
+                    return;
+                }
+
                 var fetched = await _client.FetchAsync(url, CancellationToken.None).ConfigureAwait(true);
                 var name = string.IsNullOrEmpty(typedName)
                     ? (fetched.SuggestedName ?? "Proxy")
@@ -191,6 +198,13 @@ internal sealed class AddProfileDialog
                 if (string.IsNullOrEmpty(path) || !File.Exists(path))
                 {
                     _status.Value = "请选择有效的本地文件";
+                    return;
+                }
+
+                var info = new FileInfo(path);
+                if (info.Length > SubscriptionClient.MaxBodyBytes)
+                {
+                    _status.Value = "本地文件超过 16 MB";
                     return;
                 }
 

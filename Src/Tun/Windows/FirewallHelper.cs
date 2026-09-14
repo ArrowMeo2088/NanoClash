@@ -10,13 +10,31 @@ internal static class FirewallHelper
     {
         var exe = Environment.ProcessPath ?? throw new InvalidOperationException("ProcessPath unavailable");
         var abs = Path.GetFullPath(exe);
-        var name = "NanoClash (" + abs + ")";
+        var name = RuleName(abs);
 
         // Remove prior rule with same name then add.
         TryNetsh($"advfirewall firewall delete rule name=\"{Escape(name)}\"");
         RunNetsh(
             $"advfirewall firewall add rule name=\"{Escape(name)}\" dir=in action=allow program=\"{Escape(abs)}\" enable=yes profile=any");
     }
+
+    public static void TryRemoveThisProcess()
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe))
+                return;
+            var name = RuleName(Path.GetFullPath(exe));
+            TryNetsh("advfirewall firewall delete rule name=\"" + Escape(name) + "\"");
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private static string RuleName(string abs) => "NanoClash (" + abs + ")";
 
     private static string Escape(string s) => s.Replace("\"", "\\\"");
 

@@ -36,6 +36,7 @@ internal sealed partial class MainView
     private readonly ObservableValue<string> _proxyStateText = new("关闭");
     private readonly ObservableValue<string> _enhanceStateText = new("关闭");
     private readonly ObservableValue<string> _speedText = new("传输速度 0 KB/s");
+    private readonly ObservableValue<string> _errorText = new("");
     private readonly ObservableValue<string> _healthBtnText = new("健康检查");
     private readonly ObservableValue<string> _quotaText = new("");
     private readonly ObservableValue<string> _expireText = new("");
@@ -175,6 +176,12 @@ internal sealed partial class MainView
             .FontSize(13)
             .TextAlignment(TextAlignment.Right)
             .CenterVertical();
+        var errorLabel = new Label()
+            .BindText(_errorText)
+            .FontSize(11)
+            .Foreground(Color.FromRgb(200, 80, 80))
+            .TextAlignment(TextAlignment.Right)
+            .CenterVertical();
 
         var topChrome = new StackPanel()
             .Width(ContentWidth)
@@ -203,7 +210,11 @@ internal sealed partial class MainView
                     .Width(ContentWidth)
                     .LastChildFill()
                     .Children(
-                        speedLabel.DockRight(),
+                        new StackPanel()
+                            .Horizontal()
+                            .Spacing(8)
+                            .DockRight()
+                            .Children(errorLabel, speedLabel),
                         new StackPanel()
                             .Horizontal()
                             .Spacing(18)
@@ -281,6 +292,13 @@ internal sealed partial class MainView
     {
         _proxy.PollStats();
         _speedText.Value = $"传输速度 {_proxy.TotalSpeedKBps} KB/s";
+        if (!string.IsNullOrEmpty(_proxy.LastError))
+            ShowError(_proxy.LastError);
+    }
+
+    private void ShowError(string message)
+    {
+        _errorText.Value = message;
     }
 
     private static void RunOnUi(Action action)

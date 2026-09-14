@@ -266,7 +266,7 @@ internal sealed class SystemTcpStack : IDisposable
         fake = null;
         if (qtype == DnsMessage.TypeA)
         {
-            fake = _fakeIp.Lookup(qname);
+            fake = _fakeIp.Lookup(qname, _nat.HasDestination);
             return DnsMessage.BuildAResponse(id, qname, fake);
         }
 

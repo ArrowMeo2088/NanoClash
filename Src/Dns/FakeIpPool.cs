@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
 
+using Clash.Utils;
+
 namespace Clash.Dns;
 
 /// <summary>
@@ -43,7 +45,7 @@ internal sealed class FakeIpPool
 
     public bool IsReservedDns(IPAddress ip) => ip.Equals(DnsAddress);
 
-    public IPAddress Lookup(string host)
+    public IPAddress Lookup(string host, Func<IPAddress, bool>? inUse = null)
     {
         host = Normalize(host);
         lock (_gate)
@@ -55,7 +57,7 @@ internal sealed class FakeIpPool
             }
 
             if (_hostToIp.Count >= MaxMappings)
-                EvictOldest();
+                EvictOldest(inUse);
 
             for (var attempt = 0; attempt < 65530; attempt++)
             {
@@ -78,7 +80,7 @@ internal sealed class FakeIpPool
             }
 
             // Still exhausted after wrap — force eviction and retry once.
-            EvictOldest();
+            EvictOldest(inUse);
             for (var attempt = 0; attempt < 1024; attempt++)
             {
                 var ip = HostToIp(_next);
@@ -121,20 +123,29 @@ internal sealed class FakeIpPool
         _lru.AddFirst(node);
     }
 
-    private void EvictOldest()
+    private void EvictOldest(Func<IPAddress, bool>? inUse)
     {
-        var last = _lru.Last;
-        if (last is null)
+        var node = _lru.Last;
+        while (node is not null)
+        {
+            var host = node.Value;
+            var prev = node.Previous;
+            if (_hostToIp.TryGetValue(host, out var ip) && inUse?.Invoke(ip) == true)
+            {
+                node = prev;
+                continue;
+            }
+
+            _lru.Remove(node);
+            _lruNodes.Remove(host);
+            if (_hostToIp.Remove(host, out ip))
+                _ipToHost.Remove(ip);
             return;
-        var host = last.Value;
-        _lru.RemoveLast();
-        _lruNodes.Remove(host);
-        if (_hostToIp.Remove(host, out var ip))
-            _ipToHost.Remove(ip);
+        }
     }
 
     private static string Normalize(string host) =>
-        host.Trim().TrimEnd('.').ToLowerInvariant();
+        DomainName.ToAscii(host);
 
     private static IPAddress HostToIp(uint hostBits) =>
         new([Net0, Net1, (byte)(hostBits >> 8), (byte)hostBits]);

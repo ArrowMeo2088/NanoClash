@@ -374,6 +374,9 @@ internal sealed class VisionStream : Stream
         _command = header[0];
         _remainingContent = BinaryPrimitives.ReadUInt16BigEndian(header[1..]);
         _remainingPadding = BinaryPrimitives.ReadUInt16BigEndian(header[3..]);
+        if (_remainingContent + _remainingPadding + HeaderSize > MaxFrame)
+            throw new ProxyProtocolException(ProxyErrorCode.InvalidResponse,
+                $"xtls-rprx-vision frame too large ({_remainingContent}+{_remainingPadding}).");
         _start += HeaderSize;
 
         if (_remainingContent > 0)

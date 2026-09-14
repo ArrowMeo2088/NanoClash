@@ -87,6 +87,20 @@ internal sealed class TcpNat : IDisposable
         }
     }
 
+    public bool HasDestination(IPAddress ip)
+    {
+        lock (_gate)
+        {
+            foreach (var s in _portMap.Values)
+            {
+                if (s.Destination.Address.Equals(ip))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     public TcpSession? LookupBack(ushort port)
     {
         lock (_gate)

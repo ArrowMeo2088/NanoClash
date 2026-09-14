@@ -63,14 +63,14 @@ Windows 增强模式另经 WinTUN 收发包，System TCP Listen + NAT 后再走�
 | wintun.dll | 同上 | 仅 Windows：内嵌解压后 `NativeLibrary.Load` |
 | Rules.bin | 仓库仅 `Res/Rules.bin.gz` 嵌入；运行时解压到用户目录；可选 exe 旁覆盖 | 内容变化时覆盖用户目录副本 |
 | 图标 | 嵌入 | PE + 窗口 `IconSource` |
-| WinINET undo | exe 旁 `proxy-undo.json` | 崩溃恢复系统代理 |
+| 系统代理 undo | 用户目录 `proxy-undo.json`（及 mac/GNOME 对应文件） | 崩溃恢复系统代理 |
 | 日志 | （无） | 已移除 `FileLogger` / `log.txt` |
 
 内容存储：`ContentStore` 只接受 64 位 hex 哈希文件名，路径必须落在 `DataDir` 内，防止穿越。
 
 ## 安全与权限注意
 
-- Windows 增强与部分网络配置需要**管理员**（清单已要求）。
+- Windows 增强与部分网络配置需要**管理员**（开增强时再提权）。
 - 系统代理与 TUN 路由改动失败时应回滚；启动时尝试清理上次崩溃残留。
 - 出站与订阅拉取强制绕过系统代理，避免回环。
 

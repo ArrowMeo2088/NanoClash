@@ -2,6 +2,8 @@ using System.Buffers.Binary;
 using System.Net;
 using System.Text;
 
+using Clash.Utils;
+
 namespace Clash.Dns;
 
 /// <summary>Minimal DNS message parse/build for Fake-IP A answers on TUN.</summary>
@@ -97,7 +99,7 @@ internal static class DnsMessage
 
     private static byte[] EncodeName(string name)
     {
-        name = name.Trim().TrimEnd('.').ToLowerInvariant();
+        name = DomainName.ToAscii(name);
         var labels = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
         var len = 1;
         foreach (var l in labels)

@@ -23,7 +23,31 @@ internal static class TunOsRecovery
         try
         {
             TryDeleteSplitDefaults();
+            if (TunUndoStore.TryRead(out var physical, out var nodeHost, out var ipv6Disabled))
+            {
+                if (nodeHost is not null)
+                    TryDeleteRoute(nodeHost.ToString(), "255.255.255.255");
+                if (ipv6Disabled && !string.IsNullOrEmpty(physical))
+                    TryEnableIpv6(physical);
+                TunUndoStore.Clear();
+            }
+
             TryRestoreFakeDnsOnPhysicalNics();
+            FirewallHelper.TryRemoveThisProcess();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    internal static void TryEnableIpv6(string ifName)
+    {
+        try
+        {
+            TunRouteConfigurator.RunNetshPublic(
+                $"interface ipv6 set interface name=\"{ifName}\" admin=enabled",
+                2000);
         }
         catch
         {

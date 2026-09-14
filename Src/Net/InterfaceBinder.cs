@@ -14,15 +14,27 @@ internal static class InterfaceBinder
     private const SocketOptionName IpUnicastIf = (SocketOptionName)31;
 
     private static PhysicalEndpoint? _physical;
+    private static byte[]? _unicastIf;
 
     public static bool IsBound => _physical is not null;
 
     public static PhysicalEndpoint? Current => Volatile.Read(ref _physical);
 
-    public static void SetPhysical(PhysicalEndpoint? endpoint) =>
+    public static void SetPhysical(PhysicalEndpoint? endpoint)
+    {
         Volatile.Write(ref _physical, endpoint);
+        if (endpoint is null)
+        {
+            Volatile.Write(ref _unicastIf, null);
+            return;
+        }
 
-    public static void Clear() => Volatile.Write(ref _physical, null);
+        var buf = new byte[4];
+        BinaryPrimitives.WriteInt32BigEndian(buf, endpoint.InterfaceIndex);
+        Volatile.Write(ref _unicastIf, buf);
+    }
+
+    public static void Clear() => SetPhysical(null);
 
     public static void Bind(Socket socket)
     {
@@ -35,9 +47,9 @@ internal static class InterfaceBinder
         socket.Bind(new IPEndPoint(phy.LocalAddress, 0));
 
         // Force egress interface even when the routing table prefers TUN (/1 defaults).
-        Span<byte> idxBe = stackalloc byte[4];
-        BinaryPrimitives.WriteInt32BigEndian(idxBe, phy.InterfaceIndex);
-        socket.SetSocketOption(SocketOptionLevel.IP, IpUnicastIf, idxBe.ToArray());
+        var idx = Volatile.Read(ref _unicastIf);
+        if (idx is not null)
+            socket.SetSocketOption(SocketOptionLevel.IP, IpUnicastIf, idx);
     }
 }
 

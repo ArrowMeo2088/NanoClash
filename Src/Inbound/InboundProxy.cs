@@ -5,9 +5,9 @@ using System.Net.Sockets;
 using System.Text;
 
 using Clash.IO;
+using Clash.Net;
 using Clash.Outbound;
 using Clash.Rules;
-using Clash.Utils;
 
 namespace Clash.Inbound;
 
@@ -20,6 +20,11 @@ internal sealed class InboundProxy
     private static readonly TimeSpan DialTimeout = TimeSpan.FromSeconds(20);
     private static readonly ReadOnlyMemory<byte> ConnectOk =
         "HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray();
+    private static readonly HashSet<string> HopByHop = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Host", "Proxy-Authorization", "Proxy-Connection", "Connection",
+        "Keep-Alive", "TE", "Trailer", "Upgrade", "Transfer-Encoding",
+    };
 
     private readonly RuleDb _rules;
     private readonly OutboundDialer _outbound;
@@ -104,7 +109,13 @@ internal sealed class InboundProxy
                 }
 
                 SocketUtil.ConfigureNoDelay(client);
-                var task = HandleClientAsync(client, ct);
+                if (!_concurrency.Wait(0))
+                {
+                    _ = RejectOverloadedAsync(client);
+                    continue;
+                }
+
+                var task = HandleClientAsync(client, ct, acquired: true);
                 _inflight[task] = 0;
                 _ = task.ContinueWith(t => _inflight.TryRemove(t, out _), TaskScheduler.Default);
             }
@@ -127,7 +138,24 @@ internal sealed class InboundProxy
         }
     }
 
-    private async Task HandleClientAsync(TcpClient tcp, CancellationToken listenerCt)
+    private static async Task RejectOverloadedAsync(TcpClient tcp)
+    {
+        try
+        {
+            using (tcp)
+            {
+                await using var stream = tcp.GetStream();
+                await Relay.WriteHttpErrorAsync(stream, 503, "Too many connections", CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private async Task HandleClientAsync(TcpClient tcp, CancellationToken listenerCt, bool acquired)
     {
         CancellationToken lifecycleCt;
         lock (_lifecycleGate)
@@ -139,16 +167,6 @@ internal sealed class InboundProxy
         _clients[tcp] = 0;
         try
         {
-            try
-            {
-                await _concurrency.WaitAsync(ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                tcp.Dispose();
-                return;
-            }
-
             try
             {
                 using (tcp)
@@ -187,7 +205,8 @@ internal sealed class InboundProxy
             }
             finally
             {
-                _concurrency.Release();
+                if (acquired)
+                    _concurrency.Release();
             }
         }
         finally
@@ -218,52 +237,22 @@ internal sealed class InboundProxy
                 return;
             case RuleAction.Direct:
             {
-                try
-                {
-                    await TunnelConnectAsync(
-                        client,
-                        leftover,
-                        async token => await DirectDial.ConnectAsync(target, token).ConfigureAwait(false),
-                        uploadLatency: false,
-                        ct).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    try
-                    {
-                        await Relay.WriteHttpErrorAsync(client, 503, "Unable to connect", ct).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        // ignore
-                    }
-                }
-
+                await TunnelConnectAsync(
+                    client,
+                    leftover,
+                    async token => await DirectDial.ConnectAsync(target, token).ConfigureAwait(false),
+                    uploadLatency: false,
+                    ct).ConfigureAwait(false);
                 return;
             }
             default:
             {
-                try
-                {
-                    await TunnelConnectAsync(
-                        client,
-                        leftover,
-                        async token => await _outbound.DialAsync(target, token).ConfigureAwait(false),
-                        uploadLatency: true,
-                        ct).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    try
-                    {
-                        await Relay.WriteHttpErrorAsync(client, 503, "Unable to connect", ct).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        // ignore
-                    }
-                }
-
+                await TunnelConnectAsync(
+                    client,
+                    leftover,
+                    async token => await _outbound.DialAsync(target, token).ConfigureAwait(false),
+                    uploadLatency: true,
+                    ct).ConfigureAwait(false);
                 return;
             }
         }
@@ -312,18 +301,17 @@ internal sealed class InboundProxy
                 continue;
             }
 
-            await Task.WhenAny(dialTask, Task.Delay(5, dialCts.Token)).ConfigureAwait(false);
+            try
+            {
+                await dialTask.WaitAsync(TimeSpan.FromMilliseconds(20), dialCts.Token).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                // poll DataAvailable again
+            }
         }
 
-        Stream dest;
-        try
-        {
-            dest = await dialTask.ConfigureAwait(false);
-        }
-        catch
-        {
-            throw;
-        }
+        Stream dest = await dialTask.ConfigureAwait(false);
 
         sw.Stop();
         if (uploadLatency)
@@ -345,11 +333,23 @@ internal sealed class InboundProxy
             await client.WriteAsync(ConnectOk, ct).ConfigureAwait(false);
             await client.FlushAsync(ct).ConfigureAwait(false);
 
-            var seed = early.Length > 0 ? early.ToArray() : [];
-            await TlsHelloCoalesce.FlushFirstRecordAsync(client, dest, seed, ct)
-                .ConfigureAwait(false);
-
-            await Relay.CopyBidirectionalAsync(client, dest, ct).ConfigureAwait(false);
+            var seed = early.Length > 0
+                ? early.GetBuffer().AsMemory(0, (int)early.Length)
+                : ReadOnlyMemory<byte>.Empty;
+            try
+            {
+                await TlsHelloCoalesce.FlushFirstRecordAsync(client, dest, seed, ct)
+                    .ConfigureAwait(false);
+                await Relay.CopyBidirectionalAsync(client, dest, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Tunnel already established — never write an HTTP error onto it.
+            }
         }
     }
 
@@ -363,8 +363,13 @@ internal sealed class InboundProxy
     {
         string hostHeader;
         Uri uri;
-        if (target.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-            target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        if (target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            await Relay.WriteHttpErrorAsync(client, 400, "HTTPS requires CONNECT", ct).ConfigureAwait(false);
+            return;
+        }
+
+        if (target.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
         {
             uri = new Uri(target, UriKind.Absolute);
             hostHeader = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
@@ -413,9 +418,7 @@ internal sealed class InboundProxy
             sb.Append("Host: ").Append(hostHeader).Append("\r\n");
             foreach (var (k, v) in headers)
             {
-                if (k.Equals("Host", StringComparison.OrdinalIgnoreCase) ||
-                    k.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase) ||
-                    k.Equals("Proxy-Connection", StringComparison.OrdinalIgnoreCase))
+                if (HopByHop.Contains(k))
                     continue;
                 sb.Append(k).Append(": ").Append(v).Append("\r\n");
             }
@@ -481,7 +484,13 @@ internal sealed class InboundProxy
                 var colon = line.IndexOf(':');
                 if (colon <= 0)
                     continue;
-                headers[line[..colon].Trim()] = line[(colon + 1)..].Trim();
+                var name = line[..colon].Trim();
+                var value = line[(colon + 1)..].Trim();
+                if (headers.TryGetValue(name, out var prev) &&
+                    name.Equals("Cookie", StringComparison.OrdinalIgnoreCase))
+                    headers[name] = prev + "; " + value;
+                else
+                    headers[name] = value;
             }
 
             return (method, target, headers, leftover);

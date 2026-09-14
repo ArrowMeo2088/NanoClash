@@ -119,8 +119,14 @@ internal sealed partial class MainView
         }
 
         _selected = _ordered.FirstOrDefault(c => !c.Node.IsSubscriptionInfo) ?? _ordered.FirstOrDefault();
+        if (_profiles.LoadError is { Length: > 0 })
+            ShowError(_profiles.LoadError);
 
-        if (_tun.IsRunning)
+        if (_tun.IsRunning && (_selected is null || _selected.Node.IsSubscriptionInfo))
+        {
+            _ = StopEnhanceBecauseNoNodeAsync();
+        }
+        else if (_tun.IsRunning)
         {
             _ = ReloadProfileWithTunAsync(_selected?.Node);
         }
@@ -135,6 +141,35 @@ internal sealed partial class MainView
 
         RebuildWrapOrder();
         UpdateCloudChrome();
+    }
+
+    private async Task StopEnhanceBecauseNoNodeAsync()
+    {
+        try
+        {
+            await _tun.StopAsync().ConfigureAwait(false);
+            await _proxy.SetListeningAsync(true).ConfigureAwait(false);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        _outbound.SetCurrent(null);
+        RunOnUi(() =>
+        {
+            _suppressEnhanceMode = true;
+            try
+            {
+                _enhanceMode.Value = false;
+            }
+            finally
+            {
+                _suppressEnhanceMode = false;
+            }
+
+            ShowError("无可用节点, 已关闭增强模式");
+        });
     }
 
     private async Task ReloadProfileWithTunAsync(ProxyNode? node)
@@ -154,8 +189,16 @@ internal sealed partial class MainView
             return;
 
         if (!ok)
-            return;
+        {
+            if (node is null || node.IsSubscriptionInfo)
+            {
+                await StopEnhanceBecauseNoNodeAsync().ConfigureAwait(false);
+                return;
+            }
 
+            RunOnUi(() => ShowError("切换订阅失败, 仍使用原节点"));
+            return;
+        }
 
         if (node is not null)
             _outbound.SetCurrent(node);
@@ -259,9 +302,9 @@ internal sealed partial class MainView
             ReloadFromActiveProfile();
             RefreshProfileCombo();
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore update failure
+            ShowError(ex.Message);
         }
     }
 }

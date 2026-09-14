@@ -42,6 +42,7 @@ internal static class TrojanDialer
             await TrojanHelper
                 .EstablishTrojanTunnelAsync(layered, options, host, port, cancellationToken)
                 .ConfigureAwait(false);
+            await layered.FlushAsync(cancellationToken).ConfigureAwait(false);
             return layered;
         }
         catch
@@ -182,7 +183,7 @@ internal static class TrojanHelper
             // Zero the raw password bytes (stack or pooled) before releasing.
             CryptographicOperations.ZeroMemory(pwd.Slice(0, written));
             if (rented is not null)
-                ArrayPool<byte>.Shared.Return(rented);
+                ArrayPool<byte>.Shared.Return(rented, clearArray: true);
         }
     }
 }

@@ -6,3 +6,4 @@
 |------|------|
 | `DirectNetwork` | `HttpClient.DefaultProxy` / 环境变量清零 |
 | `InterfaceBinder` | 增强模式开启后，出站 socket bind 物理口 + `IP_UNICAST_IF` |
+| `SocketUtil` | TCP_NODELAY |

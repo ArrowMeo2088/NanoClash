@@ -124,6 +124,8 @@ internal sealed partial class MainView
                     _selected = previous;
                     RefreshSelectionBorders();
                 }
+
+                ShowError("节点路由更新失败");
             });
             return;
         }
@@ -162,7 +164,7 @@ internal sealed partial class MainView
 
             _proxy.SetSystemProxy(enable);
         }
-        catch
+        catch (Exception ex)
         {
             RunOnUi(() =>
             {
@@ -175,6 +177,8 @@ internal sealed partial class MainView
                 {
                     _suppressProxyMode = false;
                 }
+
+                ShowError(ex.Message);
             });
         }
     }
@@ -187,6 +191,17 @@ internal sealed partial class MainView
             {
                 if (!OperatingSystem.IsWindowsVersionAtLeast(10))
                     throw new PlatformNotSupportedException("增强模式仅支持 Windows 10/11");
+
+                if (!Elevation.IsAdministrator())
+                {
+                    if (Elevation.TryRelaunchElevated())
+                    {
+                        RunOnUi(() => _window?.Close());
+                        return;
+                    }
+
+                    throw new InvalidOperationException("增强模式需要管理员权限");
+                }
 
                 if (_proxyMode.Value)
                 {
@@ -210,14 +225,16 @@ internal sealed partial class MainView
                     }
                 }
 
+                await _proxy.SetListeningAsync(false).ConfigureAwait(false);
                 await _tun.StartAsync().ConfigureAwait(false);
             }
             else
             {
                 await _tun.StopAsync().ConfigureAwait(false);
+                await _proxy.SetListeningAsync(true).ConfigureAwait(false);
             }
         }
-        catch
+        catch (Exception ex)
         {
             try
             {
@@ -226,6 +243,15 @@ internal sealed partial class MainView
             catch
             {
                 // ignore cleanup
+            }
+
+            try
+            {
+                await _proxy.SetListeningAsync(true).ConfigureAwait(false);
+            }
+            catch
+            {
+                // ignore
             }
 
             RunOnUi(() =>
@@ -239,6 +265,8 @@ internal sealed partial class MainView
                 {
                     _suppressEnhanceMode = false;
                 }
+
+                ShowError(ex.Message);
             });
         }
     }

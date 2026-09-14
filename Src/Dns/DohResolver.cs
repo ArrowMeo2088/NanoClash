@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text.Json;
 
 using Clash.Json;
+using Clash.Net;
 using Clash.Utils;
 
 namespace Clash.Dns;
@@ -112,63 +113,45 @@ internal sealed class DohResolver : IDisposable
 
         using var linked = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var name = cacheKey;
-
-        var primaryTask = ResolveUpstreamAsync(_primary, PrimaryUrl, "primary", name, linked.Token);
-        var backupTask = ResolveUpstreamAsync(_backup, BackupUrl, "backup", name, linked.Token);
-
-        Exception? primaryErr = null;
-        Exception? backupErr = null;
-        (IReadOnlyList<IPAddress> Ips, TimeSpan Ttl)? backup = null;
-
-        var pending = new List<Task<(IReadOnlyList<IPAddress> Ips, TimeSpan Ttl)>> { primaryTask, backupTask };
-        while (pending.Count > 0)
+        Exception? err = null;
+        try
         {
-            var finished = await Task.WhenAny(pending).ConfigureAwait(false);
-            pending.Remove(finished);
-            var isPrimary = ReferenceEquals(finished, primaryTask);
-            try
+            var primary = await ResolveUpstreamAsync(_primary, PrimaryUrl, "primary", name, linked.Token)
+                .ConfigureAwait(false);
+            if (primary.Ips.Count > 0)
             {
-                var result = await finished.ConfigureAwait(false);
-                if (isPrimary)
-                {
-                    if (result.Ips.Count > 0)
-                    {
-                        linked.Cancel();
-                        var arr = result.Ips.ToArray();
-                        _cache.Set(cacheKey, arr, ClampPosTtl(result.Ttl));
-                        return (arr, ClampPosTtl(result.Ttl));
-                    }
+                var arr = primary.Ips.ToArray();
+                _cache.Set(cacheKey, arr, ClampPosTtl(primary.Ttl));
+                return (arr, ClampPosTtl(primary.Ttl));
+            }
 
-                    primaryErr = new InvalidOperationException("primary: empty answer");
-                }
-                else if (result.Ips.Count > 0)
-                {
-                    backup = result;
-                }
-                else
-                {
-                    backupErr = new InvalidOperationException("backup: empty answer");
-                }
-            }
-            catch (Exception ex)
-            {
-                if (isPrimary)
-                    primaryErr = ex;
-                else
-                    backupErr = ex;
-            }
+            err = new InvalidOperationException("primary: empty answer");
+        }
+        catch (Exception ex)
+        {
+            err = ex;
         }
 
-        if (backup is { Ips.Count: > 0 })
+        try
         {
-            var arr = backup.Value.Ips.ToArray();
-            _cache.Set(cacheKey, arr, ClampPosTtl(backup.Value.Ttl));
-            return (arr, ClampPosTtl(backup.Value.Ttl));
+            var backup = await ResolveUpstreamAsync(_backup, BackupUrl, "backup", name, linked.Token)
+                .ConfigureAwait(false);
+            if (backup.Ips.Count > 0)
+            {
+                var arr = backup.Ips.ToArray();
+                _cache.Set(cacheKey, arr, ClampPosTtl(backup.Ttl));
+                return (arr, ClampPosTtl(backup.Ttl));
+            }
+
+            err = new InvalidOperationException("backup: empty answer");
+        }
+        catch (Exception ex)
+        {
+            err = ex;
         }
 
-        var err = primaryErr ?? backupErr ?? new InvalidOperationException($"no A for {name}");
         _cache.Set(cacheKey, null, NegTtl);
-        throw new InvalidOperationException("DoH: " + err.Message, err);
+        throw new InvalidOperationException("DoH: " + (err?.Message ?? $"no A for {name}"), err);
     }
 
     private static TimeSpan ClampPosTtl(TimeSpan ttl)

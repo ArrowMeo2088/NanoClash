@@ -116,6 +116,16 @@ internal sealed class TunService : IAsyncDisposable
                 routes.ConfigureInterface(WintunDevice.AdapterName, physical);
                 // Anti-loop host routes first; listen before hijacking the default route.
                 routes.InstallAntiLoopRoutes(physical, nodeIp);
+                try
+                {
+                    routes.DisablePhysicalIpv6(physical);
+                }
+                catch
+                {
+                    // IPv6 disable is best-effort; IPv4 hijack still proceeds.
+                }
+
+                TunUndoStore.Write(physical.Name, nodeIp, ipv6Disabled: true);
 
                 stack = new SystemTcpStack(device, rules, outbound, new Clash.Dns.FakeIpPool());
                 stack.Start();
@@ -257,6 +267,16 @@ internal sealed class TunService : IAsyncDisposable
             // ignore
         }
 
+        TunUndoStore.Clear();
+        try
+        {
+            FirewallHelper.TryRemoveThisProcess();
+        }
+        catch
+        {
+            // ignore
+        }
+
         InterfaceBinder.Clear();
 
         try
@@ -371,11 +391,17 @@ internal sealed class TunService : IAsyncDisposable
                 try
                 {
                     _routes.SetNodeHostRoute(ip, physical);
+                    TunUndoStore.Write(physical.Name, ip, ipv6Disabled: true);
                 }
                 catch
                 {
                     return false;
                 }
+            }
+            else
+            {
+                _routes.ClearNodeHostRoute();
+                TunUndoStore.Write(physical.Name, null, ipv6Disabled: true);
             }
 
             _stack?.BumpGeneration();

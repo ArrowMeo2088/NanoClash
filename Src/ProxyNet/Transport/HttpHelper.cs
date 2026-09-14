@@ -69,7 +69,8 @@ internal static class HttpHelper
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(credBuf);
+                System.Security.Cryptography.CryptographicOperations.ZeroMemory(credBuf.AsSpan(0, credLen));
+                ArrayPool<byte>.Shared.Return(credBuf, clearArray: true);
             }
 
             S_crlf.CopyTo(buf.AsSpan(pos)); pos += 2;

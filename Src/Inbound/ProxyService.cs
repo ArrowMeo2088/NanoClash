@@ -21,6 +21,7 @@ internal sealed class ProxyService : IAsyncDisposable
 
     public bool IsSystemProxyEnabled { get; private set; }
     public bool IsListening => _runTask is { IsCompleted: false };
+    public string? LastError { get; private set; }
 
     public int UploadLatencyMs { get; private set; }
     public int DownloadLatencyMs { get; private set; }
@@ -47,6 +48,7 @@ internal sealed class ProxyService : IAsyncDisposable
         _outbound = outbound;
         TrafficCounters.Reset();
         _inbound = new InboundProxy(rules, outbound);
+        LastError = null;
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var token = _cts.Token;
         _runTask = Task.Run(async () =>
@@ -59,16 +61,71 @@ internal sealed class ProxyService : IAsyncDisposable
             {
                 // stop
             }
-            catch
+            catch (Exception ex)
             {
-                // inbound stopped unexpectedly
+                LastError = ex.Message;
+                try
+                {
+                    SetSystemProxy(false);
+                }
+                catch
+                {
+                    // ignore
+                }
             }
         }, CancellationToken.None);
-        await Task.Delay(50, ct).ConfigureAwait(false);
+        await WaitUntilListeningAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task SetListeningAsync(bool enabled, CancellationToken ct = default)
+    {
+        if (enabled)
+        {
+            if (_rules is null || _outbound is null)
+                throw new InvalidOperationException("ProxyService not started");
+            if (IsListening)
+                return;
+            await StartAsync(_rules, _outbound, ct).ConfigureAwait(false);
+            return;
+        }
+
+        await StopAsync().ConfigureAwait(false);
+    }
+
+    private static async Task WaitUntilListeningAsync(CancellationToken ct)
+    {
+        var deadline = Environment.TickCount64 + 2000;
+        while (Environment.TickCount64 < deadline)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                using var probe = new System.Net.Sockets.TcpClient();
+                var connect = probe.ConnectAsync(IPAddress.Loopback, InboundProxy.Port);
+                var finished = await Task.WhenAny(connect, Task.Delay(40, ct)).ConfigureAwait(false);
+                if (finished == connect && probe.Connected)
+                    return;
+            }
+            catch
+            {
+                // not up yet
+            }
+
+            await Task.Delay(20, ct).ConfigureAwait(false);
+        }
     }
 
     public async Task StopAsync()
     {
+        try
+        {
+            _inbound?.AbortActiveConnections();
+        }
+        catch
+        {
+            // ignore
+        }
+
         try
         {
             _cts?.Cancel();
@@ -94,7 +151,6 @@ internal sealed class ProxyService : IAsyncDisposable
         _cts = null;
         _runTask = null;
         _inbound = null;
-        _outbound = null;
     }
 
     public void PollStats()
@@ -114,7 +170,7 @@ internal sealed class ProxyService : IAsyncDisposable
     {
         SetSystemProxy(false);
         await StopAsync().ConfigureAwait(false);
-        _rules?.Dispose();
         _rules = null;
+        _outbound = null;
     }
 }

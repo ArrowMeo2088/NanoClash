@@ -38,7 +38,7 @@ internal static class PhysicalInterfaceProbe
             if (ni.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel)
                 continue;
             var name = ni.Name;
-            if (IsVirtualName(name))
+            if (IsAdapterName(name))
                 continue;
 
             var props = ni.GetIPProperties();
@@ -105,12 +105,7 @@ internal static class PhysicalInterfaceProbe
         return list;
     }
 
-    private static bool IsVirtualName(string name) =>
+    private static bool IsAdapterName(string name) =>
         name.Contains("Wintun", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("NanoClash", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("WireGuard", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("TAP", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("VPN", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("vEthernet", StringComparison.OrdinalIgnoreCase);
+        name.Contains("NanoClash", StringComparison.OrdinalIgnoreCase);
 }

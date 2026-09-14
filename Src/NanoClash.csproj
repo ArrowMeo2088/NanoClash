@@ -25,6 +25,8 @@
     <StackTraceSupport>false</StackTraceSupport>
     <!-- Extra size-oriented feature switches (safe for this app; no culture/HTTP activity/etc.). -->
     <EventSourceSupport>false</EventSourceSupport>
+    <MetricsSupport>false</MetricsSupport>
+    <UseSizeOptimizedLinq>true</UseSizeOptimizedLinq>
     <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
     <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
@@ -48,7 +50,7 @@
 
   <!-- Pre-gzipped CFWR rules; runtime gunzips to the user data directory. -->
   <ItemGroup Condition="Exists('..\Res\Rules.bin.gz')">
-    <EmbeddedResource Include="..\Res\Rules.bin.gz" LogicalName="NanoClash.Rules.bin.gz" />
+    <EmbeddedResource Include="..\Res\Rules.bin.gz" LogicalName="NanoClash.Rules.bin.gz" Type="Non-Resx" WithCulture="false" />
   </ItemGroup>
 
   <!-- wintun.dll: embed for Windows targets (and RID-less IDE builds); never for linux/osx publish. -->

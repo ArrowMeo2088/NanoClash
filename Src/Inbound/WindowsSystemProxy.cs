@@ -85,7 +85,7 @@ internal sealed partial class WindowsSystemProxy : ISystemProxy
             WriteDword(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings", "ProxyEnable", 1);
             WriteString(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings", "ProxyServer", ProxyServerValue);
             WriteString(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings", "ProxyOverride",
-                "localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;169.254.*;<local>");
+                "localhost;127.*;::1;[::1];10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*;169.254.*;<local>;<loopback>");
 
             NotifyWinInet();
             _applied = true;
@@ -176,9 +176,10 @@ internal sealed partial class WindowsSystemProxy : ISystemProxy
         ov = null;
         try
         {
-            if (!File.Exists(AppPaths.ProxyUndoFile))
+            var path = UndoPath();
+            if (path is null)
                 return false;
-            var text = File.ReadAllText(AppPaths.ProxyUndoFile);
+            var text = File.ReadAllText(path);
             if (!TryParseUndoJson(text, out enable, out server, out ov))
             {
                 ClearUndoFile();
@@ -288,16 +289,27 @@ internal sealed partial class WindowsSystemProxy : ISystemProxy
         return false;
     }
 
+    private static string? UndoPath()
+    {
+        if (File.Exists(AppPaths.ProxyUndoFile))
+            return AppPaths.ProxyUndoFile;
+        var legacy = Path.Combine(AppPaths.BaseDir, "proxy-undo.json");
+        return File.Exists(legacy) ? legacy : null;
+    }
+
     private static void ClearUndoFile()
     {
-        try
+        foreach (var path in new[] { AppPaths.ProxyUndoFile, Path.Combine(AppPaths.BaseDir, "proxy-undo.json") })
         {
-            if (File.Exists(AppPaths.ProxyUndoFile))
-                File.Delete(AppPaths.ProxyUndoFile);
-        }
-        catch
-        {
-            // ignore
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 

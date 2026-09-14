@@ -22,6 +22,8 @@ internal sealed class TunRouteConfigurator
     private IPAddress? _nodeHostRoute;
     private PhysicalEndpoint? _physical;
     private string? _dnsOverrideIfName;
+    private string? _tunDnsIfName;
+    private string? _ipv6DisabledIfName;
     private IReadOnlyList<IPAddress>? _savedPhysicalDns;
 
     public TunRouteConfigurator()
@@ -79,6 +81,7 @@ internal sealed class TunRouteConfigurator
     /// </summary>
     public void ConfigureDnsHijack(string tunAdapterName, PhysicalEndpoint physical)
     {
+        _tunDnsIfName = tunAdapterName;
         RunNetsh(
             $"interface ip set dns name=\"{tunAdapterName}\" static addr={FakeDns} register=none");
 
@@ -91,6 +94,7 @@ internal sealed class TunRouteConfigurator
         }
         catch
         {
+            RestoreTunDns();
             _dnsOverrideIfName = null;
             _savedPhysicalDns = null;
             throw;
@@ -108,6 +112,7 @@ internal sealed class TunRouteConfigurator
 
     private void RestoreDns()
     {
+        RestoreTunDns();
         var ifName = _dnsOverrideIfName;
         var saved = _savedPhysicalDns;
         _dnsOverrideIfName = null;
@@ -116,6 +121,45 @@ internal sealed class TunRouteConfigurator
             return;
 
         TunOsRecovery.RestorePhysicalDns(ifName, saved);
+    }
+
+    private void RestoreTunDns()
+    {
+        var tun = _tunDnsIfName;
+        _tunDnsIfName = null;
+        if (tun is null)
+            return;
+        try
+        {
+            RunNetsh($"interface ip set dns name=\"{tun}\" dhcp");
+        }
+        catch
+        {
+            // adapter may already be gone
+        }
+    }
+
+    public void DisablePhysicalIpv6(PhysicalEndpoint physical)
+    {
+        RunNetsh($"interface ipv6 set interface name=\"{physical.Name}\" admin=disabled");
+        _ipv6DisabledIfName = physical.Name;
+    }
+
+    public void RestorePhysicalIpv6()
+    {
+        var name = _ipv6DisabledIfName;
+        _ipv6DisabledIfName = null;
+        if (name is null)
+            return;
+        TunOsRecovery.TryEnableIpv6(name);
+    }
+
+    public void ClearNodeHostRoute()
+    {
+        if (_nodeHostRoute is null || _physical is null)
+            return;
+        RemoveTrackedHostRoute(_nodeHostRoute, _physical);
+        _nodeHostRoute = null;
     }
 
     /// <summary>
@@ -254,6 +298,7 @@ internal sealed class TunRouteConfigurator
         _undo.Clear();
         _nodeHostRoute = null;
 
+        RestorePhysicalIpv6();
         RestoreDns();
     }
 

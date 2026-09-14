@@ -72,7 +72,7 @@ internal sealed class HealthChecker(OutboundDialer dialer)
         var head = Encoding.ASCII.GetString(buf, 0, total);
         var lineEnd = head.IndexOf("\r\n", StringComparison.Ordinal);
         var statusLine = lineEnd >= 0 ? head[..lineEnd] : head;
-        if (!statusLine.Contains(" 204") && !statusLine.Contains(" 200"))
+        if (!statusLine.Contains(" 204", StringComparison.Ordinal))
             return null;
 
         return (int)Math.Min(int.MaxValue, sw.ElapsedMilliseconds);

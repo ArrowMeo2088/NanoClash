@@ -9,7 +9,7 @@ Windows **System TCP** 增强模式（对照 sing-tun System stack）。非 Wind
 | `SystemStack/` | TcpNat（Destination 不可变）+ Listen/NAT/Accept → RuleDb → Proxy/Direct；首包 `TlsHelloCoalesce` |
 | `Ip/` | IPv4/TCP 头改写与校验和 |
 
-防回环：物理口探测 → 节点 `/32` → Listen → split default → **再** DNS 劫持到 `198.18.0.2`（失败则整段回滚）。UDP/TCP 53 Fake-IP；公网 DoH/DoT 丢弃。未映射 Fake-IP 丢弃；Direct 再 DoH。
+防回环：物理口探测 → 节点 `/32` → 禁用物理口 IPv6 → Listen → split default → **再** DNS 劫持到 `198.18.0.2`（失败则整段回滚）。UDP/TCP 53 Fake-IP；公网 DoH/DoT 丢弃。未映射 Fake-IP 丢弃；Direct 再 DoH。无有效节点时必须停增强。
 
 启动（`Program`）：无状态删除 split 路由 + 若物理 DNS 仍为 Fake-IP 则 DHCP 恢复。
 
