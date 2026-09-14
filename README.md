@@ -11,13 +11,13 @@
 | 能力 | 说明 |
 |------|------|
 | HTTP 入站 | 仅 `127.0.0.1:7887`（CONNECT leftover / early data）；无 SOCKS |
-| 分流 | 内嵌 `Rules.bin`（可选 exe 旁同名文件覆盖） |
+| 分流 | 内嵌 `Rules.bin.gz`（启动解压到用户目录；可选 exe 旁 `Rules.bin` 覆盖） |
 | 订阅 | 云端 URL / 本地文件；数据在用户目录；支持更新与删除 |
 | 出站 | 内嵌 ProxyNet（VLESS / Trojan，含 REALITY·Vision） |
 | DNS | 节点与 TUN Direct 走 DoH（主 AliDNS `223.5.5.5`，备 DNSPod）；HTTP Direct 用系统 DNS |
 | 代理模式 | 系统 HTTP(S) 代理 → 本机 `:7887`（Win / macOS / GNOME） |
 | 增强模式 | **仅 Windows**：WinTUN + System TCP + Fake-IP |
-| 发布 | NativeAOT + full Trim；本地扁平 `Publish/`；CI 三 RID |
+| 发布 | NativeAOT + full Trim；可选 UPX `--lzma`；本地扁平 `Publish/`；CI 三 RID |
 
 ## 快速开始
 

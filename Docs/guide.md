@@ -29,7 +29,7 @@ curl -x http://127.0.0.1:7887 https://www.google.com/ -v -o NUL
 
 ## 用户数据目录
 
-所有订阅索引与正文、以及 Windows 下解压的 `wintun.dll`，都在：
+所有订阅索引与正文、解压的 `Rules.bin`、以及 Windows 下解压的 `wintun.dll`，都在：
 
 | 平台 | 路径 |
 |------|------|
@@ -41,6 +41,7 @@ curl -x http://127.0.0.1:7887 https://www.google.com/ -v -o NUL
 |----------|------|
 | `config.yaml` | 配置列表 + `default` 名称；云端条目可含 used / total / expire |
 | `data/{sha256}` | 订阅或本地文件的原始正文（内容寻址） |
+| `Rules.bin` | 从内嵌 GZip 解压（内容变化时覆盖）；exe 旁同名文件可覆盖内嵌 |
 | `wintun.dll` | 从程序内嵌资源解压（仅 Windows；内容变化时覆盖） |
 
 若用户目录尚无 `config.yaml`，而**可执行文件旁**仍有旧版 `config.yaml` + `data/`，启动时会**一次性迁入**（不迁移旁路 `Proxy.yaml`；程序也不再读取它）。
@@ -131,4 +132,4 @@ Linux/macOS 上增强开关灰显，文案「不可用」。
 
 ## 规则旁路
 
-默认使用嵌入的 `Rules.bin`。若可执行文件旁存在同名 `Rules.bin`，则优先读该文件（开发替换规则用）。
+内嵌为 `Rules.bin.gz`；启动解压到用户目录 `Rules.bin`。若可执行文件旁存在同名 `Rules.bin`，则优先读该文件（开发替换规则用）。

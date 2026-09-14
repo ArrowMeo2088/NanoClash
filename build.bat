@@ -88,6 +88,7 @@ dotnet publish "%CSPROJ%" -c %CONFIG% -r %RID% -o "%STAGEDIR%" --self-contained 
 if errorlevel 1 exit /b 1
 call :sync_final
 if errorlevel 1 exit /b 1
+call :try_upx
 echo == done: %OUTDIR%\NanoClash.exe ==
 goto :eof
 
@@ -112,6 +113,28 @@ if exist "%STAGEDIR%\NanoClash.exe" (
 )
 exit /b 0
 
+:try_upx
+where upx >nul 2>&1
+if errorlevel 1 (
+  echo == upx: not in PATH, skip ==
+  exit /b 0
+)
+set "UPX_BIN="
+if exist "%OUTDIR%\NanoClash.exe" set "UPX_BIN=%OUTDIR%\NanoClash.exe"
+if not defined UPX_BIN if exist "%OUTDIR%\NanoClash" set "UPX_BIN=%OUTDIR%\NanoClash"
+if not defined UPX_BIN (
+  echo == upx: binary not found, skip ==
+  exit /b 0
+)
+echo == upx --best --lzma -f ==
+upx --best --lzma -f -q "%UPX_BIN%"
+if not errorlevel 1 (
+  echo == upx: ok ==
+  exit /b 0
+)
+echo == upx: failed, keeping uncompressed binary ==
+exit /b 0
+
 :clean
 echo == clean ==
 dotnet clean "%SLN%" -c %CONFIG%
@@ -124,7 +147,7 @@ del /q "%OUTDIR%\*.dll" 2>nul
 del /q "%OUTDIR%\NanoClash.deps.json" 2>nul
 del /q "%OUTDIR%\NanoClash.runtimeconfig.json" 2>nul
 del /q "%OUTDIR%\createdump.exe" 2>nul
-rem Rules.bin / wintun.dll are embedded (wintun extracted to %%APPDATA%%\ArrorMeo\NanoClash).
+rem Rules.bin.gz / wintun.dll are embedded; runtime extract under %%APPDATA%%\ArrorMeo\NanoClash.
 goto :eof
 
 :help

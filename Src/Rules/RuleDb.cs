@@ -27,32 +27,27 @@ internal sealed class RuleDb : IDisposable
 
     public int Count => _records.Count;
 
-    /// <summary>Logical name of the embedded CFWR database (see NanoClash.csproj).</summary>
-    public const string EmbeddedResourceName = "NanoClash.Rules.bin";
+    /// <summary>Logical name of the GZip-compressed embedded CFWR database (see NanoClash.csproj).</summary>
+    public const string EmbeddedResourceName = RulesBootstrap.EmbeddedResourceName;
 
     /// <summary>
     /// Load rules: optional sidecar <c>Rules.bin</c> beside the exe overrides the embed;
-    /// otherwise read the embedded resource stream in-process (never extracted to disk).
+    /// otherwise gunzip the embedded resource into the user data directory and load that file.
     /// </summary>
     public static RuleDb LoadDefault()
     {
         var sidecar = AppPaths.RulesBin;
         if (File.Exists(sidecar))
-        {
-            using var file = File.OpenRead(sidecar);
-            return Load(file);
-        }
+            return LoadFile(sidecar);
 
-        return LoadEmbedded();
+        var path = RulesBootstrap.EnsureExtracted();
+        return LoadFile(path);
     }
 
     public static RuleDb LoadEmbedded()
     {
-        var asm = typeof(RuleDb).Assembly;
-        using var stream = asm.GetManifestResourceStream(EmbeddedResourceName)
-            ?? throw new InvalidOperationException(
-                $"Embedded rules database missing ({EmbeddedResourceName}). Rebuild with Res/Rules.bin present.");
-        return Load(stream);
+        var path = RulesBootstrap.EnsureExtracted();
+        return LoadFile(path);
     }
 
     public static RuleDb LoadFile(string path)

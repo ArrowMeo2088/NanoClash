@@ -46,13 +46,13 @@
     <EmbeddedResource Include="..\Res\icon\icon.ico" LogicalName="NanoClash.icon.ico" />
   </ItemGroup>
 
-  <!-- Rules.bin embedded; read via GetManifestResourceStream (no extract / no sidecar). -->
-  <ItemGroup Condition="Exists('..\Res\Rules.bin')">
-    <EmbeddedResource Include="..\Res\Rules.bin" LogicalName="NanoClash.Rules.bin" />
+  <!-- Pre-gzipped CFWR rules; runtime gunzips to the user data directory. -->
+  <ItemGroup Condition="Exists('..\Res\Rules.bin.gz')">
+    <EmbeddedResource Include="..\Res\Rules.bin.gz" LogicalName="NanoClash.Rules.bin.gz" />
   </ItemGroup>
 
-  <!-- wintun.dll embedded; extracted at runtime to %APPDATA%\ArrorMeo\NanoClash (Windows only). -->
-  <ItemGroup Condition="Exists('..\Res\wintun\wintun.dll')">
+  <!-- wintun.dll: embed for Windows targets (and RID-less IDE builds); never for linux/osx publish. -->
+  <ItemGroup Condition="Exists('..\Res\wintun\wintun.dll') And ('$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win')))">
     <EmbeddedResource Include="..\Res\wintun\wintun.dll" LogicalName="NanoClash.wintun.dll" />
   </ItemGroup>
 

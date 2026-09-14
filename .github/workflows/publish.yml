@@ -54,47 +54,41 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang zlib1g-dev
 
-      - name: Publish ${{ matrix.rid }}
+      - name: Install UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: latest
+          install-only: true
+
+      - name: Publish ${{ matrix.rid }} (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          where upx
+          upx -V
+          build.bat publish ${{ matrix.rid }}
+
+      - name: Publish ${{ matrix.rid }} (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
-          EXTRA=()
-          case "${{ matrix.rid }}" in
-            win-*) EXTRA+=(-p:MewUIBackend=Direct2D) ;;
-          esac
-          dotnet publish Src/NanoClash.csproj \
-            -c Release \
-            -r "${{ matrix.rid }}" \
-            -o "artifacts/${{ matrix.rid }}" \
-            --self-contained true \
-            -p:PublishAot=true \
-            -p:TrimMode=full \
-            -p:OptimizationPreference=Size \
-            -p:IlcFoldIdenticalMethodBodies=true \
-            -p:InvariantGlobalization=true \
-            -p:StripSymbols=true \
-            -p:DebuggerSupport=false \
-            -p:StackTraceSupport=false \
-            -p:EventSourceSupport=false \
-            -p:HttpActivityPropagationSupport=false \
-            -p:MetadataUpdaterSupport=false \
-            -p:UseSystemResourceKeys=true \
-            -p:NullabilityInfoContextSupport=false \
-            -p:DebugType=None \
-            -p:DebugSymbols=false \
-            -p:AppendRuntimeIdentifierToOutputPath=false \
-            "${EXTRA[@]}"
+          set -euo pipefail
+          command -v upx
+          upx -V
+          chmod +x build.sh
+          ./build.sh publish "${{ matrix.rid }}"
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path "artifacts/${{ matrix.rid }}\*" -DestinationPath "${{ matrix.asset }}"
+          Compress-Archive -Path "Publish\*" -DestinationPath "${{ matrix.asset }}"
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          tar -C "artifacts/${{ matrix.rid }}" -czf "${{ matrix.asset }}" .
+          tar -C Publish -czf "${{ matrix.asset }}" .
 
       - uses: actions/upload-artifact@v4
         with:

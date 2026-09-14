@@ -14,7 +14,12 @@ internal static class AppPaths
         "ArrorMeo",
         "NanoClash");
 
+    /// <summary>Optional sidecar beside the exe (dev override; uncompressed CFWR).</summary>
     public static string RulesBin => Path.Combine(BaseDir, "Rules.bin");
+
+    /// <summary>Runtime-extracted rules under the per-user data root.</summary>
+    public static string UserRulesBin => Path.Combine(UserDataDir, "Rules.bin");
+
     public static string DataDir => Path.Combine(UserDataDir, "data");
     public static string AppConfigYaml => Path.Combine(UserDataDir, "config.yaml");
     public static string WintunDll => Path.Combine(UserDataDir, "wintun.dll");

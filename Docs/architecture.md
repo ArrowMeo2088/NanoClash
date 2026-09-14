@@ -60,8 +60,8 @@ Windows 增强模式另经 WinTUN 收发包，System TCP Listen + NAT 后再走�
 | 类别 | 位置 | 说明 |
 |------|------|------|
 | 订阅索引 / 正文 | `%APPDATA%\ArrorMeo\NanoClash` | `config.yaml` + `data/{sha256}` |
-| wintun.dll | 同上 | 内嵌解压后 `NativeLibrary.Load` |
-| Rules.bin | 嵌入；可选 exe 旁覆盖 | 不写临时文件 |
+| wintun.dll | 同上 | 仅 Windows：内嵌解压后 `NativeLibrary.Load` |
+| Rules.bin | 仓库仅 `Res/Rules.bin.gz` 嵌入；运行时解压到用户目录；可选 exe 旁覆盖 | 内容变化时覆盖用户目录副本 |
 | 图标 | 嵌入 | PE + 窗口 `IconSource` |
 | WinINET undo | exe 旁 `proxy-undo.json` | 崩溃恢复系统代理 |
 | 日志 | （无） | 已移除 `FileLogger` / `log.txt` |

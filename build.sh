@@ -54,7 +54,30 @@ sync_final() {
     exit 1
   fi
 
-  # Rules.bin / wintun.dll are embedded (wintun extracted under ApplicationData/ArrorMeo/NanoClash).
+  # Rules.bin.gz / wintun.dll are embedded; runtime extract under ApplicationData/ArrorMeo/NanoClash.
+}
+
+try_upx() {
+  if ! command -v upx >/dev/null 2>&1; then
+    echo "== upx: not in PATH, skip =="
+    return 0
+  fi
+  local bin=""
+  if [[ -f "$OUTDIR/NanoClash.exe" ]]; then
+    bin="$OUTDIR/NanoClash.exe"
+  elif [[ -f "$OUTDIR/NanoClash" ]]; then
+    bin="$OUTDIR/NanoClash"
+  else
+    echo "== upx: binary not found, skip =="
+    return 0
+  fi
+  echo "== upx --best --lzma -f =="
+  if upx --best --lzma -f -q "$bin"; then
+    echo "== upx: ok =="
+    return 0
+  fi
+  echo "== upx: failed, keeping uncompressed binary =="
+  return 0
 }
 
 if [[ $# -ge 1 ]]; then
@@ -130,6 +153,7 @@ case "$CMD" in
       -p:AppendRuntimeIdentifierToOutputPath=false \
       "${EXTRA[@]}"
     sync_final
+    try_upx
     echo "== done: $OUTDIR/NanoClash =="
     ;;
 esac
