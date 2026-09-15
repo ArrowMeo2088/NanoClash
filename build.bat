@@ -147,7 +147,7 @@ del /q "%OUTDIR%\*.dll" 2>nul
 del /q "%OUTDIR%\NanoClash.deps.json" 2>nul
 del /q "%OUTDIR%\NanoClash.runtimeconfig.json" 2>nul
 del /q "%OUTDIR%\createdump.exe" 2>nul
-rem Rules.bin.gz / wintun.dll are embedded; runtime extract under %%APPDATA%%\ArrorMeo\NanoClash.
+rem Rules.bin.gz / wintun.dll are embedded; runtime extract under %%APPDATA%%\ArrowMeo\NanoClash.
 goto :eof
 
 :help

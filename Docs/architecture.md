@@ -50,7 +50,7 @@ flowchart LR
   decision -->|Direct| dial[DirectDial]
   decision -->|Reject| drop[Drop]
   node -->|DoH A| doh[DohResolver]
-  core -->|config / data| udata["%APPDATA%/ArrorMeo/NanoClash"]
+  core -->|config / data| udata["%APPDATA%/ArrowMeo/NanoClash"]
 ```
 
 Windows 增强模式另经 WinTUN 收发包，System TCP Listen + NAT 后再走同一套规则与出站。
@@ -59,7 +59,7 @@ Windows 增强模式另经 WinTUN 收发包，System TCP Listen + NAT 后再走�
 
 | 类别 | 位置 | 说明 |
 |------|------|------|
-| 订阅索引 / 正文 | `%APPDATA%\ArrorMeo\NanoClash` | `config.yaml` + `data/{sha256}` |
+| 订阅索引 / 正文 | `%APPDATA%\ArrowMeo\NanoClash` | `config.yaml` + `data/{sha256}` |
 | wintun.dll | 同上 | 仅 Windows：内嵌解压后 `NativeLibrary.Load` |
 | Rules.bin | 仓库仅 `Res/Rules.bin.gz` 嵌入；运行时解压到用户目录；可选 exe 旁覆盖 | 内容变化时覆盖用户目录副本 |
 | 图标 | 嵌入 | PE + 窗口 `IconSource` |

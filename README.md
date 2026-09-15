@@ -32,7 +32,7 @@ chmod +x build.sh && ./build.sh
 ./Publish/NanoClash
 ```
 
-用户数据：`%APPDATA%\ArrorMeo\NanoClash`（Linux/macOS 为对应 Application Data 路径下的同名目录）。
+用户数据：`%APPDATA%\ArrowMeo\NanoClash`（Linux/macOS 为对应 Application Data 路径下的同名目录）。
 
 ## 文档
 

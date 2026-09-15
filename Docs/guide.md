@@ -33,9 +33,9 @@ curl -x http://127.0.0.1:7887 https://www.google.com/ -v -o NUL
 
 | 平台 | 路径 |
 |------|------|
-| Windows | `%APPDATA%\ArrorMeo\NanoClash` |
-| Linux | `~/.config/ArrorMeo/NanoClash`（ApplicationData） |
-| macOS | `~/Library/Application Support/ArrorMeo/NanoClash` |
+| Windows | `%APPDATA%\ArrowMeo\NanoClash` |
+| Linux | `~/.config/ArrowMeo/NanoClash`（ApplicationData） |
+| macOS | `~/Library/Application Support/ArrowMeo/NanoClash` |
 
 | 相对路径 | 用途 |
 |----------|------|

@@ -6,12 +6,12 @@ internal static class AppPaths
         Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     /// <summary>
-    /// Per-user data root: <c>%APPDATA%\ArrorMeo\NanoClash</c> (Windows) /
-    /// <c>~/.config/ArrorMeo/NanoClash</c> (Linux) / Application Support equivalent (macOS).
+    /// Per-user data root: <c>%APPDATA%\ArrowMeo\NanoClash</c> (Windows) /
+    /// <c>~/.config/ArrowMeo/NanoClash</c> (Linux) / Application Support equivalent (macOS).
     /// </summary>
     public static string UserDataDir { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "ArrorMeo",
+        "ArrowMeo",
         "NanoClash");
 
     /// <summary>Optional sidecar beside the exe (dev override; uncompressed CFWR).</summary>

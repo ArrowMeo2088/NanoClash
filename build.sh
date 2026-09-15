@@ -54,7 +54,7 @@ sync_final() {
     exit 1
   fi
 
-  # Rules.bin.gz / wintun.dll are embedded; runtime extract under ApplicationData/ArrorMeo/NanoClash.
+  # Rules.bin.gz / wintun.dll are embedded; runtime extract under ApplicationData/ArrowMeo/NanoClash.
 }
 
 try_upx() {
