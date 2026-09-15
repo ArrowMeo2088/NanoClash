@@ -157,7 +157,7 @@ case "$CMD" in
       -p:NullabilityInfoContextSupport=false \
       -p:DebugType=None -p:DebugSymbols=false \
       -p:AppendRuntimeIdentifierToOutputPath=false \
-      "${EXTRA[@]}"
+      ${EXTRA[@]+"${EXTRA[@]}"}
     sync_final
     try_upx
     echo "== done: $OUTDIR/NanoClash =="
