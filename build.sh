@@ -58,6 +58,12 @@ sync_final() {
 }
 
 try_upx() {
+  case "$(uname -s)" in
+    Darwin*)
+      echo "== upx: skipped on macOS =="
+      return 0
+      ;;
+  esac
   if ! command -v upx >/dev/null 2>&1; then
     echo "== upx: not in PATH, skip =="
     return 0
